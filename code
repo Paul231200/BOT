@@ -1,0 +1,94 @@
+import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+import schedule
+import time
+
+# Initialize your bot
+bot = telebot.TeleBot("6829599027:AAFnZEg4_ckIkOebKL6J8rghamkMClwEn3I")
+
+# Dictionary to store tasks and their reminder times
+tasks = {}
+
+# Function to handle the /start command
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "Привет! Я ваш персональный бот. Чем я могу вам помочь сегодня?", reply_markup=create_main_keyboard())
+
+# Function to create the main keyboard
+def create_main_keyboard():
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton('Сохранить документ'))
+    keyboard.add(KeyboardButton('Показать сохраненные документы'))
+    keyboard.add(KeyboardButton('Добавить задачу'))
+    keyboard.add(KeyboardButton('Показать задачи'))
+    keyboard.add(KeyboardButton('Удалить все задачи'))
+    return keyboard
+
+# Function to save documents
+@bot.message_handler(func=lambda message: message.text == 'Сохранить документ')
+def save_document(message):
+    bot.send_message(message.chat.id, "Пожалуйста, отправьте фотографию документа, который вы хотите сохранить.")
+
+# Function to handle the photo message
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    # Here you can save the photo if needed
+    bot.send_message(message.chat.id, "Документ успешно сохранен.")
+
+# Function to handle the "Show saved documents" button
+@bot.message_handler(func=lambda message: message.text == 'Показать сохраненные документы')
+def show_saved_documents(message):
+    # Placeholder for displaying saved documents
+    bot.send_message(message.chat.id, "Показ сохраненных документов... (Заглушка)")
+
+# Function to add a task to the to-do list and set a reminder
+@bot.message_handler(func=lambda message: message.text == 'Добавить задачу')
+def add_task(message):
+    tasks[message.chat.id] = {'task': '', 'reminder_time': None}
+    bot.send_message(message.chat.id, "Введите задачу, которую вы хотите добавить в список дел:")
+
+# Function to handle the task input and reminder time
+@bot.message_handler(func=lambda message: message.chat.id in tasks and tasks[message.chat.id]['task'] and not tasks[message.chat.id]['reminder_time'])
+def handle_task_input_and_reminder_time(message):
+    tasks[message.chat.id]['reminder_time'] = message.text
+    schedule_task(message.chat.id)
+    bot.send_message(message.chat.id, "Напоминание успешно установлено.")
+
+# Function to schedule the reminder task
+def schedule_task(chat_id):
+    task = tasks[chat_id]['task']
+    reminder_time = tasks[chat_id]['reminder_time']
+
+    schedule.every().day.at(reminder_time).do(send_reminder, chat_id, task)
+
+# Function to send the reminder message
+def send_reminder(chat_id, task):
+    bot.send_message(chat_id, f"Напоминание: {task}")
+
+# Function to handle the "Show tasks" button
+@bot.message_handler(func=lambda message: message.text == 'Показать задачи')
+def show_tasks(message):
+    if message.chat.id in tasks and tasks[message.chat.id]['task']:
+        bot.send_message(message.chat.id, "Задачи в списке дел:")
+        bot.send_message(message.chat.id, tasks[message.chat.id]['task'])
+    else:
+        bot.send_message(message.chat.id, "Нет задач в списке дел.")
+
+# Function to handle the "Clear all tasks" button
+@bot.message_handler(func=lambda message: message.text == 'Удалить все задачи')
+def clear_all_tasks(message):
+    if message.chat.id in tasks:
+        tasks[message.chat.id] = {'task': '', 'reminder_time': None}
+        bot.send_message(message.chat.id, "Все задачи успешно удалены.")
+    else:
+        bot.send_message(message.chat.id, "Нет задач для удаления.")
+
+# Function to handle bot polling
+def bot_polling():
+    while True:
+        schedule.run_pending()
+        bot.polling(none_stop=True)
+
+# Start the bot polling
+if __name__ == "__main__":
+    bot_polling()
